@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NCS Offline Installer</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>nRF Connect SDK – Offline Install Assistant</h1>
+  <p class="sub">Generates the scripts for preparing a USB stick on an online machine and installing from it on an offline machine. Runs fully offline; nothing is sent anywhere.</p>
+  <p class="note">A web page can't install software itself. Run the generated scripts in a terminal. Command flags can differ between nrfutil versions, so check <code>nrfutil &lt;command&gt; --help</code> if one fails.</p>
+</header>
+
+<main>
+  <section class="card" id="config">
+    <h2>1 · Configuration</h2>
+    <div class="grid">
+      <label>Operating system (both machines)
+        <select id="os">
+          <option value="win">Windows (PowerShell)</option>
+          <option value="linux">Linux (bash)</option>
+          <option value="mac">macOS (bash/zsh)</option>
+        </select>
+      </label>
+      <label>nRF Connect SDK version
+        <input id="ver" value="v3.0.0" placeholder="v3.0.0">
+        <span class="warn">The name shown for the SDK in nRF Connect for VS Code is the version defined in the file <code>nrf/VERSION</code> inside the SDK, not this value or the folder name. A snapshot may show e.g. 3.4.99 instead of its tag name.</span>
+      </label>
+      <label>Tool flavour
+        <select id="mode">
+          <option value="sdkm">nrfutil sdk-manager (newer releases)</option>
+          <option value="tcm">nrfutil toolchain-manager (older releases)</option>
+        </select>
+      </label>
+      <label>USB stick folder
+        <input id="usb" placeholder="E:\ncs-offline">
+      </label>
+      <label>Install folder on offline PC
+        <input id="root" placeholder="C:\ncs">
+        <span class="warn">Must be the folder VS Code / nrfutil sdk-manager uses for all its ncs installations (for example C:\Nordic\ncs). Other folders are not detected by the nRF Connect extension.</span>
+      </label>
+      <label>Toolchain bundle file on USB (optional)
+        <input id="bundle" placeholder="E:\ncs-offline\bundle.tar.gz">
+      </label>
+    </div>
+    <div class="checks">
+      <label><input type="checkbox" id="oNrfutil" checked> Include nrfutil + offline package index</label>
+      <label><input type="checkbox" id="oTool" checked> Include toolchain</label>
+      <label><input type="checkbox" id="oSdk" checked> Include SDK source (west workspace)</label>
+    </div>
+    <p class="hint">Tip: keep paths short and free of spaces (Windows path-length limits break Zephyr builds).</p>
+  </section>
+
+  <section class="card">
+    <h2>2 · Scripts</h2>
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-tab="online">Online machine (prepare USB)</button>
+      <button class="tab" data-tab="offline">Offline machine (install)</button>
+      <button class="tab" data-tab="verify">Verify</button>
+      <button class="tab" data-tab="check">Checklist</button>
+    </div>
+    <div id="panel">
+      <div class="toolbar" id="toolbar">
+        <button id="copy">Copy</button>
+        <button id="dl">Download</button>
+        <span id="msg" aria-live="polite"></span>
+      </div>
+      <pre id="out"></pre>
+      <ul id="checklist" hidden></ul>
+    </div>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
