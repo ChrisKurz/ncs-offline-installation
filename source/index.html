@@ -41,6 +41,16 @@
         <input id="root" placeholder="C:\ncs">
         <span class="warn">Must be the folder VS Code / nrfutil sdk-manager uses for all its ncs installations (for example C:\Nordic\ncs). Other folders are not detected by the nRF Connect extension.</span>
       </label>
+      <label>Archive format (archive mode)
+        <select id="fmt">
+          <option value="tar">.tar (fastest, recommended)</option>
+          <option value="tgz">.tar.gz (smaller, slower)</option>
+        </select>
+      </label>
+      <label>Staging folder on online PC (archive mode)
+        <input id="stage" placeholder="C:\ncs-stage">
+        <span class="hint2">Local folder where SDK and toolchain are installed before packing, so the USB stick only receives a few big files.</span>
+      </label>
       <label>Toolchain bundle file on USB (optional)
         <input id="bundle" placeholder="E:\ncs-offline\bundle.tar.gz">
       </label>
@@ -49,6 +59,7 @@
       <label><input type="checkbox" id="oNrfutil" checked> Include nrfutil + offline package index</label>
       <label><input type="checkbox" id="oTool" checked> Include toolchain</label>
       <label><input type="checkbox" id="oSdk" checked> Include SDK source (west workspace)</label>
+      <label><input type="checkbox" id="oArchive"> Archive mode: pack SDK and toolchain into single files (much faster USB copy)</label>
     </div>
     <p class="hint">Tip: keep paths short and free of spaces (Windows path-length limits break Zephyr builds).</p>
   </section>

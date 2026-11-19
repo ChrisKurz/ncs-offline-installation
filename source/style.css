@@ -45,3 +45,4 @@ code{background:color-mix(in srgb,var(--muted) 18%,transparent);padding:1px 5px;
 @media (max-width:520px){.tab{flex:1 1 100%}}
 .warn{color:var(--fg);background:color-mix(in srgb,#d98a00 16%,transparent);
   border-left:3px solid #d98a00;padding:6px 10px;border-radius:4px;font-size:.82rem}
+.hint2{color:var(--muted);font-size:.8rem}

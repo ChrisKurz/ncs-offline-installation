@@ -19,6 +19,9 @@
       usb: ($("usb").value || d.usb).trim().replace(/[\\\/]+$/, ""),
       root: ($("root").value || d.root).trim().replace(/[\\\/]+$/, ""),
       bundle: $("bundle").value.trim(),
+      archive: $("oArchive").checked,
+      fmt: $("fmt").value,
+      stage: ($("stage").value || (os === "win" ? "C:\\ncs-stage" : "$HOME/ncs-stage")).trim().replace(/[\\\/]+$/, ""),
       nrfutil: $("oNrfutil").checked,
       tool: $("oTool").checked,
       sdk: $("oSdk").checked
@@ -32,11 +35,24 @@
   function online(c) {
     var L = [], u = c.usb, v = c.ver;
     var tm = c.mode === "sdkm" ? "sdk-manager" : "toolchain-manager";
+    var wk = c.archive ? c.stage : u; // where toolchains/ and sdk/ are created
+    var ext = c.fmt === "tgz" ? ".tar.gz" : ".tar";
+    var cflag = c.fmt === "tgz" ? "-czf" : "-cf";
     L.push(cmt(c, "Run on an ONLINE machine (same OS/arch as the target)."));
     L.push(cmt(c, "Prepares: " + u));
+    if (c.archive) {
+      L.push(cmt(c, "ARCHIVE MODE: SDK and toolchain are installed in a local staging folder (" + wk + ")"));
+      L.push(cmt(c, "and then packed into single files on the USB stick."));
+      L.push(cmt(c, "Use an exFAT/NTFS stick: FAT32 cannot hold files larger than 4 GB."));
+    }
     L.push("");
-    if (c.win) L.push('New-Item -ItemType Directory -Force "' + u + '" | Out-Null');
-    else L.push('mkdir -p "' + u + '"');
+    if (c.win) {
+      L.push('New-Item -ItemType Directory -Force "' + u + '" | Out-Null');
+      if (c.archive) L.push('New-Item -ItemType Directory -Force "' + wk + '" | Out-Null');
+    } else {
+      L.push('mkdir -p "' + u + '"');
+      if (c.archive) L.push('mkdir -p "' + wk + '"');
+    }
     L.push("");
     if (c.nrfutil) {
       L.push(cmt(c, "1) nrfutil: upgrade twice (needed when coming from old versions)"));
@@ -54,31 +70,42 @@
       L.push(cmt(c, "2) Toolchain for NCS " + v));
       if (c.mode === "sdkm") {
         L.push('nrfutil sdk-manager toolchain install --ncs-version ' + v +
-               ' --install-dir "' + j(c, u, "toolchains") + '"');
+               ' --install-dir "' + j(c, wk, "toolchains") + '"');
       } else {
         L.push('nrfutil toolchain-manager install --ncs-version ' + v +
-               ' --install-dir "' + j(c, u, "toolchains") + '"');
+               ' --install-dir "' + j(c, wk, "toolchains") + '"');
       }
       L.push("");
     }
     if (c.sdk) {
-      var sdkDir = j(c, u, "sdk\\" + v).replace(/\\/g, c.win ? "\\" : "/");
+      var sdkDir = j(c, wk, "sdk\\" + v).replace(/\\/g, c.win ? "\\" : "/");
       L.push(cmt(c, "3) SDK source (west workspace) for NCS " + v));
       if (c.mode === "sdkm") {
         L.push('nrfutil sdk-manager sdk install ' + v +
-               ' --install-dir "' + j(c, u, "sdk") + '"');
+               ' --install-dir "' + j(c, wk, "sdk") + '"');
         L.push(cmt(c, "If your version lacks this subcommand, use the west method below."));
       }
       L.push(cmt(c, "west method (works with both flavours):"));
       L.push('nrfutil toolchain-manager launch --ncs-version ' + v +
-             ' --install-dir "' + j(c, u, "toolchains") + '" --chdir "' + sdkDir +
+             ' --install-dir "' + j(c, wk, "toolchains") + '" --chdir "' + sdkDir +
              '" -- west init -m https://github.com/nrfconnect/sdk-nrf --mr ' + v);
       L.push('nrfutil toolchain-manager launch --ncs-version ' + v +
-             ' --install-dir "' + j(c, u, "toolchains") + '" --chdir "' + sdkDir +
+             ' --install-dir "' + j(c, wk, "toolchains") + '" --chdir "' + sdkDir +
              '" -- west update');
       L.push("");
     }
-    L.push(cmt(c, "4) Also put these on the stick manually:"));
+    if (c.archive && (c.tool || c.sdk)) {
+      L.push(cmt(c, "4) Pack into single files on the USB stick"));
+      if (c.sdk) {
+        L.push('tar ' + cflag + ' "' + j(c, u, "sdk-" + v + ext) + '" -C "' + j(c, wk, "sdk") + '" ' + v);
+      }
+      if (c.tool) {
+        L.push('tar ' + cflag + ' "' + j(c, u, "toolchains" + ext) + '" -C "' + wk + '" toolchains');
+      }
+      if (c.win) L.push(cmt(c, "   (Windows 10/11 include tar.exe; check with: tar --version)"));
+      L.push("");
+    }
+    L.push(cmt(c, (c.archive ? "5" : "4") + ") Also put these on the stick manually:"));
     L.push(cmt(c, "   - VS Code installer + the 'nRF Connect for VS Code' .vsix (and its extension pack deps)"));
     L.push(cmt(c, "   - SEGGER J-Link installer (for flashing/debugging)"));
     L.push(cmt(c, "   - Any device drivers your OS needs"));
@@ -88,7 +115,12 @@
   function offline(c) {
     var L = [], u = c.usb, r = c.root, v = c.ver;
     var tm = c.mode === "sdkm" ? "sdk-manager" : "toolchain-manager";
+    var ext = c.fmt === "tgz" ? ".tar.gz" : ".tar";
     L.push(cmt(c, "Run on the OFFLINE machine with the USB stick connected."));
+    if (c.archive) {
+      L.push(cmt(c, "ARCHIVE MODE: copy the archives from the stick to the hard drive first (one big file is fast),"));
+      L.push(cmt(c, "then extract from the hard drive. tar auto-detects .tar / .tar.gz when extracting."));
+    }
     L.push(cmt(c, "IMPORTANT: " + r + " must be the folder that VS Code (nrfutil sdk-manager) uses for"));
     L.push(cmt(c, "all its ncs installations. Any other folder is not detected by the nRF Connect extension."));
     L.push(cmt(c, "If unsure, use the folder where VS Code installs SDKs, or point sdk-manager at your folder:"));
@@ -116,9 +148,16 @@
         L.push('nrfutil ' + tm + (c.mode === "sdkm" ? " toolchain" : "") +
                ' install --toolchain-bundle "' + c.bundle + '" --install-dir "' + j(c, r, "toolchains") + '"');
       } else {
-        L.push(cmt(c, "Option A: copy the toolchains prepared on the online machine"));
-        L.push(c.win ? 'Copy-Item -Recurse -Force "' + u + '\\toolchains" "' + r + '\\"'
-                     : 'cp -R "' + u + '/toolchains" "' + r + '/"');
+        if (c.archive) {
+          L.push(cmt(c, "Option A (archive mode): extract the toolchains archive"));
+          L.push(c.win ? 'New-Item -ItemType Directory -Force "' + r + '" | Out-Null' : 'mkdir -p "' + r + '"');
+          L.push(c.win ? 'Copy-Item "' + u + '\\toolchains' + ext + '" "$env:TEMP\\"' : 'cp "' + u + '/toolchains' + ext + '" /tmp/');
+          L.push('tar -xf "' + (c.win ? '$env:TEMP\\toolchains' + ext : '/tmp/toolchains' + ext) + '" -C "' + r + '"');
+        } else {
+          L.push(cmt(c, "Option A: copy the toolchains prepared on the online machine"));
+          L.push(c.win ? 'Copy-Item -Recurse -Force "' + u + '\\toolchains" "' + r + '\\"'
+                       : 'cp -R "' + u + '/toolchains" "' + r + '/"');
+        }
         L.push(cmt(c, "Option B: install from a downloaded bundle instead:"));
         L.push(cmt(c, '  nrfutil ' + tm + (c.mode === "sdkm" ? " toolchain" : "") +
                ' install --toolchain-bundle <bundle-file> --install-dir "' + j(c, r, "toolchains") + '"'));
@@ -128,8 +167,14 @@
     if (c.sdk) {
       L.push(cmt(c, "3) SDK source"));
       L.push(c.win ? 'New-Item -ItemType Directory -Force "' + r + '" | Out-Null' : 'mkdir -p "' + r + '"');
-      L.push(c.win ? 'Copy-Item -Recurse -Force "' + u + '\\sdk\\*" "' + r + '\\"'
-                   : 'cp -R "' + u + '/sdk/." "' + r + '/"');
+      if (c.archive) {
+        L.push(c.win ? 'Copy-Item "' + u + '\\sdk-' + v + ext + '" "$env:TEMP\\"' : 'cp "' + u + '/sdk-' + v + ext + '" /tmp/');
+        L.push('tar -xf "' + (c.win ? '$env:TEMP\\sdk-' + v + ext : '/tmp/sdk-' + v + ext) + '" -C "' + r + '"');
+        L.push(cmt(c, "   Result: " + j(c, r, v)));
+      } else {
+        L.push(c.win ? 'Copy-Item -Recurse -Force "' + u + '\\sdk\\*" "' + r + '\\"'
+                     : 'cp -R "' + u + '/sdk/." "' + r + '/"');
+      }
       L.push("");
     }
     if (c.sdk) {
@@ -178,6 +223,8 @@
     "nrfutil upgraded twice on the online machine before prepare-offline",
     "Toolchain for the chosen NCS version copied to the stick",
     "SDK source fully fetched (west update finished without errors)",
+    "Archive mode: archives created and copied; stick is exFAT/NTFS (files > 4 GB)",
+    "Archive mode: extracted folder is <install folder>/<version> with nrf/VERSION inside",
     "VS Code installer and nRF Connect .vsix files copied",
     "SEGGER J-Link installer copied",
     "Install path is short and has no spaces",
@@ -221,6 +268,7 @@
   function setDefaults() {
     var d = DEFAULTS[$("os").value];
     $("usb").placeholder = d.usb; $("root").placeholder = d.root;
+    $("stage").placeholder = $("os").value === "win" ? "C:\\ncs-stage" : "$HOME/ncs-stage";
   }
 
   document.querySelectorAll(".tab").forEach(function (b) {
@@ -229,7 +277,7 @@
       b.classList.add("active"); current = b.dataset.tab; render();
     });
   });
-  ["os", "ver", "mode", "usb", "root", "bundle", "oNrfutil", "oTool", "oSdk"].forEach(function (id) {
+  ["os", "ver", "mode", "usb", "root", "bundle", "oNrfutil", "oTool", "oSdk", "oArchive", "fmt", "stage"].forEach(function (id) {
     $(id).addEventListener("input", function () { if (id === "os") setDefaults(); render(); });
     $(id).addEventListener("change", render);
   });
